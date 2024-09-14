@@ -10,7 +10,6 @@ run_binwalk() {
   fi
 }
 
-#extract the initramfs from a kernel image
 extract_initramfs() {
   local kernel_bin="$1"
   local working_dir="$2"
@@ -76,7 +75,8 @@ copy_kernel() {
   local shim_loop=$(create_loop "${shim_path}")
   local kernel_loop="${shim_loop}p2" #KERN-A should always be p2
   dd if=$kernel_loop of=$kernel_dir/kernel.bin bs=1M status=none
-  losetup -d $shim_loop
+  dd if=$kernel_loop of="/tmp/kernel.bin" bs=1M status=none
+  # losetup -d $shim_loop
 }
 
 #copy the kernel image then extract the initramfs
@@ -98,6 +98,7 @@ extract_initramfs_full() {
   else
     extract_initramfs $kernel_dir/kernel.bin $kernel_dir $rootfs_dir
   fi
+
 
   if [ "$kernel_bin" ]; then 
     cp $kernel_dir/kernel.bin $kernel_bin

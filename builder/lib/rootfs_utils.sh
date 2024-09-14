@@ -2,6 +2,35 @@
 # Code was borrowed from the SH1mmer repo, credits to them
 # https://github.com/MercuryWorkshop/sh1mmer
 
+get_sector_size() {
+	"$SFDISK" -l "$1" | grep "Sector size" | awk '{print $4}'
+}
+
+get_final_sector() {
+	"$SFDISK" -l -o end "$1" | grep "^\s*[0-9]" | awk '{print $1}' | sort -nr | head -n 1
+}
+
+# create_stateful(){
+#   local final_sector=$(get_final_sector "$loopdev")
+#   local sector_size=$(get_sector_size "$loopdev")
+#   # special UUID is from grunt shim, dunno if this is different on other shims
+#   "$CGPT" add "$loopdev" -i 1 -b $((final_sector + 1)) -s $((state_size / sector_size)) -t "9CC433E4-52DB-1F45-A951-316373C30605"
+#   partx -u -n 1 "$loopdev"
+#   mkfs.ext4 -F "$loopdev"p1
+#   sync
+# }
+
+create_stateful(){
+	local image="$1"
+	fdisk "$image" << EOF > /dev/null 2>&1
+n
+1
+
++${state_size}M
+w
+EOF
+}
+
 is_ext2() {
 	local rootfs="$1"
 	local offset="${2-0}"
@@ -48,7 +77,7 @@ disable_rw_mount() {
 
 shrink_partitions() {
   local shim="$1"
-  fdisk "$shim" <<EOF
+  fdisk "$shim" <<EOF > /dev/null 2>&1
   d
   12
   d
@@ -69,7 +98,6 @@ shrink_partitions() {
   4
   d
   1
-  p
   w
 EOF
 }
@@ -80,11 +108,11 @@ truncate_image() {
 	local final_sector=$(get_final_sector "$1")
 	local end_bytes=$(((final_sector + buffer) * sector_size))
 
-	log "Truncating image to $(format_bytes "$end_bytes")"
-	truncate -s "$end_bytes" "$1"
+	echo "Truncating image to $(format_bytes "$end_bytes")"
+	truncate -s "$end_bytes" "$1" > /dev/null 2>&1
 
 	# recreate backup gpt table/header
-	suppress sgdisk -e "$1" 2>&1 | sed 's/\a//g'
+	sgdisk -e "$1" 2>&1 | sed 's/\a//g' > /dev/null 2>&1
 }
 
 format_bytes() {
@@ -92,24 +120,29 @@ format_bytes() {
 }
 
 shrink_root() {
-  log "Shrinking ROOT-A Partition"
+    loopdev="$@"
+    echo "$@"
+    echo "$1"
+    echo "Shrinking ROOT-A Partition"
 
-	enable_rw_mount "${LOOPDEV}p3"
-	suppress e2fsck -fy "${LOOPDEV}p3"
-	suppress resize2fs -M "${LOOPDEV}p3"
-	disable_rw_mount "${LOOPDEV}p3"
+    echo $loopdev
 
-	local sector_size=$(get_sector_size "$LOOPDEV")
-	local block_size=$(tune2fs -l "${LOOPDEV}p3" | grep "Block size" | awk '{print $3}')
-	local block_count=$(tune2fs -l "${LOOPDEV}p3" | grep "Block count" | awk '{print $3}')
+	enable_rw_mount "${loopdev}p3"
+	e2fsck -fy "${loopdev}p3"
+	resize2fs -M "${loopdev}p3"
+	disable_rw_mount "${loopdev}p3"
 
-	local original_sectors=$("$CGPT" show -i 3 -s -n -q "$LOOPDEV")
+	local sector_size=$(get_sector_size "$loopdev")
+	local block_size=$(tune2fs -l "${loopdev}p3" | grep "Block size" | awk '{print $3}')
+	local block_count=$(tune2fs -l "${loopdev}p3" | grep "Block count" | awk '{print $3}')
+
+	local original_sectors=$("$CGPT" show -i 3 -s -n -q "$loopdev")
 	local original_bytes=$((original_sectors * sector_size))
 
 	local resized_bytes=$((block_count * block_size))
 	local resized_sectors=$((resized_bytes / sector_size))
 
 	echo "Resizing ROOT from $(format_bytes ${original_bytes}) to $(format_bytes ${resized_bytes})"
-	"$CGPT" add -i 3 -s "$resized_sectors" "$LOOPDEV"
-	partx -u -n 3 "$LOOPDEV"
+	"$CGPT" add -i 3 -s "$resized_sectors" "$loopdev"
+	partx -u -n 3 "$loopdev"
 }
