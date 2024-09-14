@@ -16,18 +16,17 @@ fi
 SCRIPT_DIR=$(dirname "$0")
 VERSION=1
 
-HOST_ARCH=$(lscpu | grep Architecture | awk '{print $2}')
-if [ $HOST_ARCH == "x86_64" ]; then
-  CGPT="$SCRIPT_DIR/bins/cgpt.x86-64"
-  SFDISK="$SCRIPT_DIR/bins/sfdisk.x86-64"
-else
-  CGPT="$SCRIPT_DIR/bins/cgpt.aarch64"
-  SFDISK="$SCRIPT_DIR/bins/sfdisk.aarch64"
-fi
+ARCHITECTURE="$(uname -m)"
+case "$ARCHITECTURE" in
+	*x86_64* | *x86-64*) ARCHITECTURE=x86_64 ;;
+	*aarch64* | *armv8*) ARCHITECTURE=aarch64 ;;
+	*i[3-6]86*) ARCHITECTURE=i386 ;;
+	*) fail "Unsupported architecture $ARCHITECTURE" ;;
+esac
 
-source lib/extract_initramfs.sh
-source lib/detect_arch.sh
-source lib/rootfs_utils.sh
+source ${SCRIPT_DIR}/lib/extract_initramfs.sh
+source ${SCRIPT_DIR}/lib/detect_arch.sh
+source ${SCRIPT_DIR}/lib/rootfs_utils.sh
 
 echo "PicoShim builder"
 echo "requires: binwalk, fdisk, cgpt, mkfs.ext2, numfmt"
@@ -36,6 +35,8 @@ SHIM="$1"
 initramfs="/tmp/initramfs_path"
 rootfs_mnt="/tmp/picoshim_rootmnt"
 loopdev=$(losetup -f)
+CGPT="${SCRIPT_DIR}/lib/bin/$ARCHITECTURE/cgpt"
+SFDISK="${SCRIPT_DIR}/lib/bin/$ARCHITECTURE/sfdisk"
 
 # gets the initramfs size, e.g: 6.5M, and rounds it to the nearest whole number, e.g: 7M
 # we're giving it 5 extra MBs to allow the busybox binaries to be installed
