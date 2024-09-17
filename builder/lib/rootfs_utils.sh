@@ -29,6 +29,7 @@ n
 +${state_size}M
 w
 EOF
+echo "y" | mkfs.ext4 "$image"p1 > /dev/null 2>&1
 }
 
 is_ext2() {

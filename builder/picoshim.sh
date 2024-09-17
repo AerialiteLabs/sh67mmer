@@ -14,6 +14,7 @@ if [ "$1" == "" ]; then
 fi
 
 SCRIPT_DIR=$(dirname "$0")
+SCRIPT_DIR=${SCRIPT_DIR:-"."}
 VERSION=1
 
 ARCHITECTURE="$(uname -m)"
@@ -32,16 +33,12 @@ echo "PicoShim builder"
 echo "requires: binwalk, fdisk, cgpt, mkfs.ext2, numfmt"
 
 SHIM="$1"
-initramfs="/tmp/initramfs_path"
-rootfs_mnt="/tmp/picoshim_rootmnt"
+initramfs="/tmp/picoshim_initramfs"
+rootfs_mnt="/tmp/picoshim_rootfsmnt"
+state_mnt="/tmp/picoshim_statemnt"
 loopdev=$(losetup -f)
-CGPT="${SCRIPT_DIR}/lib/bin/$ARCHITECTURE/cgpt"
-SFDISK="${SCRIPT_DIR}/lib/bin/$ARCHITECTURE/sfdisk"
-
-# gets the initramfs size, e.g: 6.5M, and rounds it to the nearest whole number, e.g: 7M
-# we're giving it 5 extra MBs to allow the busybox binaries to be installed
-initramfs_size=$(($(du -sb "$initramfs" | awk '{print $1}' | numfmt --to=iec | awk '{print int($1) + ($1 > int($1))}') + 2))
-kernsize=$(fdisk -l ${loopdev}p2 | head -n 1 | awk '{printf $3}')
+CGPT="${SCRIPT_DIR}/bins/$ARCHITECTURE/cgpt"
+SFDISK="${SCRIPT_DIR}/bins/$ARCHITECTURE/sfdisk"
 
 # size of stateful partition in MiB
 state_size="1"
@@ -54,6 +51,9 @@ mkdir -p $initramfs
 rm -rf $rootfs_mnt # cleanup previous instances of picoshim, if they existed.
 mkdir -p $rootfs_mnt
 
+rm -rf $state_mnt # cleanup previous instances of picoshim, if they existed.
+mkdir -p $state_mnt
+
 if [ -f "$SHIM" ]; then
   shrink_partitions "$SHIM"
   losetup -P "$loopdev" "$SHIM"
@@ -64,8 +64,13 @@ fi
 arch=$(detect_arch $loopdev)
 extract_initramfs_full "$loopdev" "$initramfs" "/tmp/shim_kernel/kernel.img" "$arch"
 dd if="${loopdev}p2" of=/tmp/kernel-new.bin bs=1M oflag=direct status=none
+# gets the initramfs size, e.g: 6.5M, and rounds it to the nearest whole number, e.g: 7M
+# we're giving it 5 extra MBs to allow the busybox binaries to be installed & our bootstrapped stuff
+initramfs_size=$(($(du -sb "$initramfs" | awk '{print $1}' | numfmt --to=iec | awk '{print int($1) + ($1 > int($1))}') + 3))
+kernsize=$(($(fdisk -l ${loopdev}p2 | head -n 1 | awk '{printf $3}')))
+# add another meg to the kernel just incase of resigning issues (:spoob:)
 
-fdisk "$loopdev" <<EOF > /dev/null 2>&1
+fdisk "$loopdev" <<EOF > /dev/null 2>&1 
 d
 3
 p
@@ -84,7 +89,7 @@ p
 
 w
 EOF
-dd if=/tmp/kernel-new.bin of="${loopdev}p2" bs=1M oflag=direct status=none
+dd if=/tmp/kernel-new.bin of="${loopdev}p2" bs=1M oflag=direct status=none conv=notrunc
 
 echo "creating new filesystem on rootfs"
 echo "y" | mkfs.ext2 "$loopdev"p3 -L ROOT-A > /dev/null 2>&1
@@ -92,20 +97,38 @@ echo "mounting & moving files from initramfs to rootfs"
 mount "$loopdev"p3 "$rootfs_mnt"
 mv "$initramfs"/* "$rootfs_mnt"/
 
+echo "bootstrapping rootfs..." 
+# we have to do this due to issues with the `cp` command
+noarchfolders=$(ls "${SCRIPT_DIR}/bootstrap/noarch/")
+for folder in $noarchfolders; do
+  cp -r "${SCRIPT_DIR}/bootstrap/noarch/${folder}" "$rootfs_mnt"
+done
+
+archfolders=$(ls "${SCRIPT_DIR}/bootstrap/$arch/")
+for folder in $archfolders; do 
+  cp -r "${SCRIPT_DIR}/bootstrap/${arch}/${folder}" "$rootfs_mnt"
+done
+
+printf "#!/bin/busybox sh \n /bin/busybox --install /bin" > "$rootfs_mnt"/installbins
+chmod +x "$rootfs_mnt"/installbins
+chroot "$rootfs_mnt" "/installbins"
+
 create_stateful "$loopdev"
+mount "$loopdev"p1 "$state_mnt"
+mkdir -p "$state_mnt"/dev_image/etc/
+touch "$state_mnt"/dev_image/etc/lsb-factory
 
 
 echo "adding kernel priorities"
-"$CGPT" add "$loopdev" -i 2 -t kernel -P 1
-"$CGPT" add "$loopdev" -i 3 -t rootfs
+"$CGPT" add "$loopdev" -i 2 -t kernel -P 15 -T 15 -S 1 -R 1 -l KERN-A
+"$CGPT" add "$loopdev" -i 3 -t rootfs -l ROOT-A
 
 echo "cleaning up"
 losetup -D
 
 truncate_image "$SHIM"
 
-
+umount "$loopdev"p3
+umount "$loopdev"p1
 rm -rf $initramfs
 rm -rf $rootfs_mnt
-umount "$loopdev"p3
-
