@@ -21,7 +21,6 @@ ARCHITECTURE="$(uname -m)"
 case "$ARCHITECTURE" in
 	*x86_64* | *x86-64*) ARCHITECTURE=x86_64 ;;
 	*aarch64* | *armv8*) ARCHITECTURE=aarch64 ;;
-	*i[3-6]86*) ARCHITECTURE=i386 ;;
 	*) fail "Unsupported architecture $ARCHITECTURE" ;;
 esac
 
@@ -36,7 +35,6 @@ SHIM="$1"
 initramfs="/tmp/picoshim_initramfs"
 rootfs_mnt="/tmp/picoshim_rootfsmnt"
 state_mnt="/tmp/picoshim_statemnt"
-loopdev=$(losetup -f)
 CGPT="${SCRIPT_DIR}/bins/$ARCHITECTURE/cgpt"
 SFDISK="${SCRIPT_DIR}/bins/$ARCHITECTURE/sfdisk"
 
@@ -44,6 +42,8 @@ SFDISK="${SCRIPT_DIR}/bins/$ARCHITECTURE/sfdisk"
 state_size="1"
 
 
+rm -rf /tmp/kernel*
+losetup -D
 
 rm -rf $initramfs # cleanup previous instances of picoshim, if they existed.
 mkdir -p $initramfs
@@ -54,6 +54,17 @@ mkdir -p $rootfs_mnt
 rm -rf $state_mnt # cleanup previous instances of picoshim, if they existed.
 mkdir -p $state_mnt
 
+rm -rf /tmp/loop0
+
+# the amount of headaches loop0 has caused me....
+if ! $(losetup | grep loop0); then
+	touch /tmp/loop0
+	dd if=/dev/urandom of=/tmp/loop0 bs=1 count=512 status=none > /dev/null 2>&1
+	losetup -P /dev/loop0 /tmp/loop0
+fi
+
+loopdev=$(losetup -f)
+
 if [ -f "$SHIM" ]; then
   shrink_partitions "$SHIM"
   losetup -P "$loopdev" "$SHIM"
@@ -63,12 +74,15 @@ fi
 
 arch=$(detect_arch $loopdev)
 extract_initramfs_full "$loopdev" "$initramfs" "/tmp/shim_kernel/kernel.img" "$arch"
-dd if="${loopdev}p2" of=/tmp/kernel-new.bin bs=1M oflag=direct status=none
+dd if="${loopdev}p2" of=/tmp/kernel-new.bin bs=1M status=none
+
 # gets the initramfs size, e.g: 6.5M, and rounds it to the nearest whole number, e.g: 7M
 # we're giving it 5 extra MBs to allow the busybox binaries to be installed & our bootstrapped stuff
 initramfs_size=$(($(du -sb "$initramfs" | awk '{print $1}' | numfmt --to=iec | awk '{print int($1) + ($1 > int($1))}') + 3))
-kernsize=$(($(fdisk -l ${loopdev}p2 | head -n 1 | awk '{printf $3}')))
+kernsize=$(($(du -sb /tmp/kernel-new.bin | awk '{print $1}' | numfmt --to=iec | awk '{print int($1) + ($1 > int($1))}')))
 # add another meg to the kernel just incase of resigning issues (:spoob:)
+
+echo "fdisk!"
 
 fdisk "$loopdev" <<EOF > /dev/null 2>&1 
 d
