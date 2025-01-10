@@ -1,0 +1,11 @@
+#!/bin/sh
+
+printf "\033]input:on\a"
+printf "\033[?25h"
+
+clear
+echo "PicoShim PoC without frecon restart"
+echo "shell is pid 1, exit = kern panic"
+
+tty=/dev/pts/0
+setsid bash -c "exec script -afqc 'while :; do /bin/bash || :; done' /dev/null <${tty} >>${tty} 2>&1"
