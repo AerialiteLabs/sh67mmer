@@ -1,4 +1,5 @@
-grunt.bin.old
+*.bin*
+build/
 
 # Prerequisites
 *.d

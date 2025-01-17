@@ -93,7 +93,7 @@ extract_initramfs_full() {
   copy_kernel $shim_path $kernel_dir
 
   echo "extracting initramfs from kernel (this may take a while)"
-  if [ "$arch" = "arm64" ]; then
+  if [ "$arch" = "aarch64" ]; then
     extract_initramfs_arm $kernel_dir/kernel.bin $kernel_dir $rootfs_dir
   else
     extract_initramfs $kernel_dir/kernel.bin $kernel_dir $rootfs_dir

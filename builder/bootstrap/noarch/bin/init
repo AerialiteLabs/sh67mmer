@@ -1,11 +1,16 @@
 #!/bin/sh
 
+VERSION="1.0.0"
+
 printf "\033]input:on\a"
 printf "\033[?25h"
 
+bash /installbins
+rm -rf /init
+
 clear
-echo "PicoShim PoC without frecon restart"
-echo "shell is pid 1, exit = kern panic"
+echo "PicoShim $VERSION"
+echo "this shell is PID 1 - exiting will crash your chromebook"
 
 tty=/dev/pts/0
 setsid bash -c "exec script -afqc 'while :; do /bin/bash || :; done' /dev/null <${tty} >>${tty} 2>&1"

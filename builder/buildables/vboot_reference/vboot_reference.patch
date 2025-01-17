@@ -1,0 +1,12 @@
+diff --git a/Makefile b/Makefile
+index ff3f88d1..94b1cee3 100644
+--- a/Makefile
++++ b/Makefile
+@@ -533,7 +533,6 @@ ALL_OBJS += ${UTILLIB_OBJS}
+ 
+ # Externally exported library for some target userspace apps to link with
+ # (cryptohome, updater, etc.)
+-HOSTLIB = ${BUILD}/libvboot_host.so
+ HOSTLIB_STATIC = ${BUILD}/libvboot_host.a
+ 
+ # For testing purposes files contianing some libvboot_host symbols.

@@ -45,13 +45,17 @@ state_size="1"
 rm -rf /tmp/kernel*
 losetup -D
 
-rm -rf $initramfs # cleanup previous instances of picoshim, if they existed.
+# cleanup previous instances of picoshim, if they existed
+umount -R $initramfs  > /dev/null 2>&1
+rm -rf $initramfs
 mkdir -p $initramfs
 
-rm -rf $rootfs_mnt # cleanup previous instances of picoshim, if they existed.
+umount -R $rootfs_mnt  > /dev/null 2>&1
+rm -rf $rootfs_mnt
 mkdir -p $rootfs_mnt
 
-rm -rf $state_mnt # cleanup previous instances of picoshim, if they existed.
+umount -R $state_mnt  > /dev/null 2>&1
+rm -rf $state_mnt
 mkdir -p $state_mnt
 
 rm -rf /tmp/loop0
@@ -116,16 +120,26 @@ echo "bootstrapping rootfs..."
 noarchfolders=$(ls "${SCRIPT_DIR}/bootstrap/noarch/")
 for folder in $noarchfolders; do
   cp -r "${SCRIPT_DIR}/bootstrap/noarch/${folder}" "$rootfs_mnt"
+  files=$(find "${SCRIPT_DIR}/bootstrap/noarch/${folder}" -type f)
+  for file in $files; do
+    chmod +x $file
+  done 
 done
 
 archfolders=$(ls "${SCRIPT_DIR}/bootstrap/$arch/")
 for folder in $archfolders; do 
   cp -r "${SCRIPT_DIR}/bootstrap/${arch}/${folder}" "$rootfs_mnt"
+  files=$(find "${SCRIPT_DIR}/bootstrap/${arch}/${folder}" -type f)
+  for file in $files; do
+    chmod +x $file
+  done 
 done
 
 printf "#!/bin/busybox sh \n /bin/busybox --install /bin" > "$rootfs_mnt"/installbins
 chmod +x "$rootfs_mnt"/installbins
-chroot "$rootfs_mnt" "/installbins"
+
+# we do this inside the init script now
+# chroot "$rootfs_mnt" "/installbins"
 
 create_stateful "$loopdev"
 mount "$loopdev"p1 "$state_mnt"
