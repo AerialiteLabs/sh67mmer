@@ -7,7 +7,6 @@
 **1.** Find your board, this can be done by going to `chrome://version` and then looking for the "Platform" entry. <br />
     **1a.** Once found, look at the **last** word in the line, that is your board.<br />
 **2.** Download a shim at https://dl.kxtz.dev/ChromeOS/shims/PicoShim<br />
-     **2a.** Shims are in the `<boardname>.zip` format<br />
 **3.** Open the Chrome Recovery Utility (or flasher of your choice) and open the file, and then select your USB.<br />
 **4.** Once the image is done flashing, remove all external media (CD, USB, SD) and press ESC+REFRESH+PWR<br />
 **5.** Insert your newly-flashed USB <br />
