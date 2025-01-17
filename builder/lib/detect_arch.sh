@@ -7,6 +7,7 @@ detect_arch() {
 	if [ -f "$MNT_ROOT/bin/bash" ]; then
 		case "$(file -b "$MNT_ROOT/bin/bash" | awk -F ', ' '{print $2}' | tr '[:upper:]' '[:lower:]')" in
 			# for now assume arm has aarch64 kernel
+			# theres no armv7 shims leaked so far iirc
 			*aarch64* | *armv8* | *arm*) TARGET_ARCH=aarch64 ;;
 		esac
 	fi
