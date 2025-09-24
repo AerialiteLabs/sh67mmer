@@ -1,6 +1,6 @@
 #!/bin/bash
-# PicoShim Builder
-# 2024
+# sh67mmer Builder
+# 2067
 
 if [ $EUID -ne 0 ]; then
   echo "You MUST run this program with sudo or as root."
@@ -28,13 +28,13 @@ source ${SCRIPT_DIR}/lib/extract_initramfs.sh
 source ${SCRIPT_DIR}/lib/detect_arch.sh
 source ${SCRIPT_DIR}/lib/rootfs_utils.sh
 
-echo "PicoShim builder"
+echo "sh67mmer builder"
 echo "requires: binwalk, fdisk, cgpt, mkfs.ext2, numfmt"
 
 SHIM="$1"
-initramfs="/tmp/picoshim_initramfs"
-rootfs_mnt="/tmp/picoshim_rootfsmnt"
-state_mnt="/tmp/picoshim_statemnt"
+initramfs="/tmp/sh67mmer_initramfs"
+rootfs_mnt="/tmp/sh67mmer_rootfsmnt"
+state_mnt="/tmp/sh67mmer_statemnt"
 CGPT="${SCRIPT_DIR}/bins/$ARCHITECTURE/cgpt"
 SFDISK="${SCRIPT_DIR}/bins/$ARCHITECTURE/sfdisk"
 
@@ -45,7 +45,7 @@ state_size="1"
 rm -rf /tmp/kernel*
 losetup -D
 
-# cleanup previous instances of picoshim, if they existed
+# cleanup previous instances of sh67mmer, if they existed
 umount -R $initramfs  > /dev/null 2>&1
 rm -rf $initramfs
 mkdir -p $initramfs

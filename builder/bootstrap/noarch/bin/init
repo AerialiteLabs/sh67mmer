@@ -9,8 +9,7 @@ bash /installbins
 rm -rf /init
 
 clear
-echo "PicoShim $VERSION"
-echo "this shell is PID 1 - exiting will crash your chromebook"
+echo "sh67mmer $VERSION"
 
 tty=/dev/pts/0
-setsid bash -c "exec script -afqc 'while :; do /bin/bash || :; done' /dev/null <${tty} >>${tty} 2>&1"
+setsid bash -c "exec script -afqc 'while :; do /bin/sh67mmer || :; done' /dev/null <${tty} >>${tty} 2>&1"
