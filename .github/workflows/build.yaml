@@ -87,5 +87,6 @@ jobs:
         name: sh67mmer ${{ inputs.tag }}
         tag_name: ${{ inputs.tag }}
         files: ./sh67mmer-${{ matrix.board }}.bin
+        overwrite: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
